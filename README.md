@@ -10,3 +10,9 @@ to link old recordings files:
 
 `./extract_stills.sh`
 
+# Local (macos) data prep: 
+
+cd /Volumes/Work/Projects/housemachine-2022
+conda activate housemachine
+python extract_stills.py
+
