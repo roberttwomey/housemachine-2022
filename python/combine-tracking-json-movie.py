@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 """
-Render a text file of drawing data as png.
+Render json files from motion tracking overhead cams to video
 
-rtwomey@uw.edu
+rtwomey@unl.edu - 2022
 
 """
 
 import numpy as np
-import pylab
-import struct
+#import pylab
+#import struct
 import sys
 # import pygame
 # from pygame.locals import * 
@@ -17,19 +17,26 @@ import argparse
 import os
 import json
 import cv2
+# import tqdm
 
 def ReadJSONDrawingData(filename):
 
     with open(filename) as infile:
         d = json.load(infile)
 
+    # print(d['trails'][0])
+    # exit()
+
     shapes=[]
     i=0
     for trail in d['trails']:
         thisshape = {}
+        count = 0
         for point in trail:
             # print cv[:2]
-            thisshape[point[2]]=point[:2]
+            # thisshape[point[2]]=point[:2]
+            thisshape[count]=point
+            count+=1
 
         # print "***"
         i = i +1
@@ -126,15 +133,29 @@ def main():
     cv2.rectangle(img, (0,0), (outwidth, outheight), WHITE, cv2.FILLED)
 
     # fourcc = 0
+    
+    # Set up video output
+
     fourcc = cv2.VideoWriter_fourcc('a','v','c','1')
-    outfile = infiles[0].split(".")[0]+"_trails.mp4"
+    outfile = os.path.splitext(os.path.basename(infiles[0]))[0]+"_trails.mp4"
     try: 
         out = cv2.VideoWriter(outfile, fourcc, 15.0, (int(outwidth), int(outheight)))
+        # out = cv2.VideoWriter(outfile, fourcc, 60.0, (int(outwidth), int(outheight)))
     except e:
         print(e)
 
-    for infname in infiles:
-        
+    WRITE_EVERY = 1#10
+
+    # Loop over input files
+
+    # for infname in infiles:
+    # for idx in tqdm(range(len(infiles))):
+    print(len(infiles), "files:", end="")
+    for idx in range(len(infiles)):
+        print(".", end="")
+        sys.stdout.flush()
+
+        infname = infiles[idx]
         points = []
 
         # read in input file (drawing reording)
@@ -148,11 +169,15 @@ def main():
 
             firstPoint = True
 
-            for point in shape:
-                print(shape[point])
-                exit()
+            for i in shape:
+                # print(i, shape[i])
+                # exit()
+                fpoint = shape[i]
+                point = np.array(fpoint)
+                # point = [np.float32(val) for val in fpoint]
+                # print(point)
 
-                curr = mapToScreen(point[:2], 0, width, 0, height, outwidth, outheight)
+                curr = mapToScreen(point, 0, width, 0, height, outwidth, outheight)
                 
                 # pen down
                 # color = BLUE
@@ -161,14 +186,15 @@ def main():
                 if firstPoint:
                     firstPoint = False
                 else:
-                    # cv2.line(img, (int(last[0]), int(last[1])), (int(curr[0]), int(curr[1])), (color), 1)
-                    cv2.line(img, (np.float32(last[0]), np.float32(last[1])), (np.float32(curr[0]), np.float32(curr[1])), (color), 1, cv2.LINE_AA)
+                    cv2.line(img, (int(last[0]), int(last[1])), (int(curr[0]), int(curr[1])), (color), 1)
+                    # cv2.line(img, (np.float32(last[0]), np.float32(last[1])), (np.float32(curr[0]), np.float32(curr[1])), (color), 1, cv2.LINE_AA)
 
-                    try:
-                        # print(".", end=" ")
-                        out.write(img)
-                    except:
-                        print("Error: video frame did not write")
+                    if i%WRITE_EVERY == 0:
+                        try:
+                            # print(".", end=" ")
+                            out.write(img)
+                        except:
+                            print("Error: video frame did not write")
 
                 last = curr
 

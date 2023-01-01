@@ -1,5 +1,8 @@
 # housemachine-2022
-some gan stuff with a machine for living in project
+Machine for Living In work for 2022-2023
+- training StyleGAN3 on stills from housemachine
+- generating motion trial drawings from json tracking data
+
 --
 # setup
 to link old recordings files: 
