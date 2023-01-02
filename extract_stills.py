@@ -1,5 +1,7 @@
 import ffmpeg
 import os
+from tqdm import tqdm
+import json
 
 def load_metadata(filename, prepostroll=10.0):
     metadata = ffmpeg.probe(filename)
@@ -11,13 +13,11 @@ def load_metadata(filename, prepostroll=10.0):
     width = int(video_stream['width'])
     height = int(video_stream['height'])
 
-    print(f'Width: {width}, Height: {height}, FPS: {fps} fps, Duration: {duration} sec')
-    print(fps)
-
     # calculating frame intervals
     # from here: https://api.video/blog/tutorials/extract-a-set-of-frames-from-a-video-with-ffmpeg-and-python
     action_duration = duration-prepostroll # prepostroll is length of pre and post in motion trigger
-    print(action_duration)
+    
+    #print(f'Width: {width}, Height: {height}, FPS: {fps} fps, Duration: {duration} sec, action_duration: {action_duration}')
     
     return (duration, action_duration, width, height)
 
@@ -38,8 +38,30 @@ def create_intervals(filename, duration, action_duration):
     # extract after (post_motion)
     intervals+=[duration-2.5]
 
-    print(intervals)
+    # print(intervals)
     return intervals
+
+def create_intervals2(filename, duration, action_duration):
+    fps = 15.0
+    f_len = 1.0/fps
+    starttime = 5.0
+
+    samples_per_second = 5.0
+    sample_interval = (1.0/samples_per_second)
+    
+    intervals = []
+    if duration > 11.0:    
+        # extract only frames from action segment
+        t = starttime
+        # while t < starttime+action_duration:
+        while t < duration:
+            intervals.append(t)
+            t+=sample_interval
+    else: 
+        intervals = [5.0]
+
+    return intervals
+    
 
 def extract_frames(filename, intervals, height, outpath):
     
@@ -51,13 +73,13 @@ def extract_frames(filename, intervals, height, outpath):
     for time in intervals:
         outfilename = "{0}_{1:02d}.jpg".format(filebase, i)
         outfile = os.path.join(outpath, outfilename)
-        print(i, intervals, filename, outfile)
+        # print(i, intervals, filename, outfile)
 
         (
             ffmpeg
             .input(filename, ss=time)
             .filter('scale', height, height) # width, -1)
-            .output(outfile, vframes=1)
+            .output(outfile, vframes=1, loglevel="quiet")
             .overwrite_output()
             .run()
         )
@@ -95,16 +117,41 @@ def main():
     # filename ="input-videos/livingroom/livingroom_motion_2017-08-13_10.26.55_5.mp4"
 
     files, counts = walk_files("input-videos/")
-    print(files[:10])
-    print(counts)
+    # print(files)
+    print("counts for each room: ", counts)
+    file_count = len(files)
+    intervals = {}
+    still_count = 0
 
-    for filename in files:
-        duration, action_duration, width, height = load_metadata(filename)
-        
-        intervals = create_intervals(filename, duration, action_duration)
+    if not os.path.exists("intervals.json"):
+        print("calculating intervals:")
+        with tqdm(total=file_count) as pbar:  # Do tqdm this way
+            for filename in files:
+                duration, action_duration, width, height = load_metadata(filename, prepostroll=10.0) # action starts 
+                
+                # intervals = create_intervals(filename, duration, action_duration)
+                intervals[filename] = create_intervals2(filename, duration, action_duration) # only action parts
+                # print(filename, intervals)
 
-        extract_frames(filename, intervals, height, outpath="output/")
-        # print(filename, duration)
+                still_count += len(intervals[filename])
+                pbar.update(1)  # Increment the progress bar
+
+        print("writing out intervals to json file")
+        with open("intervals.json", "w") as outfile:
+            json.dump(intervals, outfile)
+    else: 
+        with open('intervals.json', 'r') as openfile:
+            # Reading from json file
+            intervals = json.load(openfile)
+            still_count = sum(len(lst) for dct in intervals.values() for lst in intervals.values())
+
+    print("extracting frames:")
+    with tqdm(total=still_count) as pbar:  # Do tqdm this way
+        for filename in files:
+            extract_frames(filename, intervals[filename], height, outpath="output/")
+            # print(filename, duration)
+
+            pbar.update(len(intervals[filename]))  # Increment the progress bar
 
 
 if __name__ == "__main__":

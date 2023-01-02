@@ -138,14 +138,16 @@ def main():
 
     fourcc = cv2.VideoWriter_fourcc('a','v','c','1')
     outfile = os.path.splitext(os.path.basename(infiles[0]))[0]+"_trails.mp4"
+    outfile = os.path.join("results", outfile)
     try: 
-        out = cv2.VideoWriter(outfile, fourcc, 15.0, (int(outwidth), int(outheight)))
-        # out = cv2.VideoWriter(outfile, fourcc, 60.0, (int(outwidth), int(outheight)))
+        # out = cv2.VideoWriter(outfile, fourcc, 15.0, (int(outwidth), int(outheight)))
+        out = cv2.VideoWriter(outfile, fourcc, 60.0, (int(outwidth), int(outheight)))
     except e:
         print(e)
 
-    WRITE_EVERY = 1#10
-
+    # WRITE_EVERY = 1
+    WRITE_EVERY = 10
+    
     # Loop over input files
 
     # for infname in infiles:
